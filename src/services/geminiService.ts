@@ -46,7 +46,16 @@ export async function generateJoke(age?: number, previousJokes: string[] = []): 
       ? `\n\nBELANGRIJK: Vertel NIET een van de volgende moppen die de gebruiker al kent:\n${previousJokes.join('\n')}`
       : "";
 
-    const prompt = `Vertel een heel korte, grappige kindermop voor een kind van ${age || 8} jaar oud. De mop moet perfect te begrijpen zijn voor deze leeftijd.${avoidInstruction}`;
+    const randomSeed = Math.random().toString(36).substring(7);
+    const prompt = `Vertel een heel korte, grappige kindermop voor een kind van ${age || 8} jaar oud. 
+    De mop moet perfect te begrijpen zijn voor deze leeftijd.
+    
+    GEEF EEN NIEUWE MOP. Gebruik verschillende thema's (dieren, school, dokters, sport, etc.).
+    Random seed voor variatie: ${randomSeed}
+    
+    ${avoidInstruction}
+    
+    Zorg dat de mop origineel is en niet een van de meest standaard moppen (zoals de tomaat met de paraplu).`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
