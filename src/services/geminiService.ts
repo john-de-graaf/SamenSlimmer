@@ -42,8 +42,8 @@ async function fetchWikipediaImage(query: string): Promise<string | undefined> {
 export async function generateJokes(age?: number, count: number = 3, previousJokes: string[] = []): Promise<{setup: string, punchline: string}[]> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.SamenSlimmer;
   
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
-    console.warn("Gemini API key is missing or using placeholder. Returning fallback joke.");
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '') {
+    console.warn("Gemini API key is missing or invalid. Check your Secrets settings.");
     return [{
       setup: "Waarom nam de tomaat een paraplu mee?",
       punchline: "Omdat het regende!"
@@ -67,7 +67,7 @@ export async function generateJokes(age?: number, count: number = 3, previousJok
     Zorg dat de moppen origineel zijn en niet de meest standaard moppen (zoals de tomaat met de paraplu).`;
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-latest', // Using latest for better reliability
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -91,20 +91,23 @@ export async function generateJokes(age?: number, count: number = 3, previousJok
       }
     });
     
-    const jsonStr = response.text?.trim() || "{}";
-    const parsed = JSON.parse(jsonStr);
+    const text = response.text;
+    if (!text) throw new Error("Empty response from Gemini");
+    
+    const parsed = JSON.parse(text.trim());
     const jokes = parsed.jokes || [];
     
-    return jokes.length > 0 ? jokes : [{
-      setup: "Waarom nam de tomaat een paraplu mee?",
-      punchline: "Omdat het regende!"
-    }];
+    if (jokes.length === 0) throw new Error("No jokes found in JSON response");
+    
+    return jokes;
   } catch (e) {
-    console.error("Error generating jokes:", e);
-    return [{
-      setup: "Waarom nam de tomaat een paraplu mee?",
-      punchline: "Omdat het regende!"
-    }];
+    console.error("Error generating jokes with Gemini:", e);
+    // Fallback jokes if the API fails
+    return [
+      { setup: "Wat is groen en glijdt van een berg?", punchline: "Een ski-wi!" },
+      { setup: "Het is geel en als je op een knopje drukt wordt het grijs?", punchline: "Een banaan in een uniform!" },
+      { setup: "Waarom vliegen vogels naar het zuiden?", punchline: "Omdat het te ver is om te lopen!" }
+    ];
   }
 }
 
