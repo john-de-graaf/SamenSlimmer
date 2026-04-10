@@ -9,11 +9,13 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(
-        (env.GEMINI_API_KEY && env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY') 
-          ? env.GEMINI_API_KEY 
-          : (env.SamenSlimmer || '')
+        env.VITE_GEMINI_API_KEY || 
+        env.GEMINI_API_KEY || 
+        env.SamenSlimmer || 
+        env.VITE_SAMEN_SLIMMER || 
+        ''
       ),
-      'process.env.SamenSlimmer': JSON.stringify(env.SamenSlimmer || ''),
+      'process.env.SamenSlimmer': JSON.stringify(env.SamenSlimmer || env.VITE_SAMEN_SLIMMER || ''),
     },
     resolve: {
       alias: {
