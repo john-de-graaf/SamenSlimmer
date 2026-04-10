@@ -2,8 +2,7 @@ import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { Question, ThemeId, Level, Player, ModeId } from '../types';
 import { getSeasonalTheme } from '../data';
 
-const apiKey = process.env.GEMINI_API_KEY || process.env.SamenSlimmer;
-const ai = new GoogleGenAI({ apiKey: apiKey || '' });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.SamenSlimmer || '' });
 
 async function fetchWikipediaImage(query: string): Promise<string | undefined> {
   if (!query || query.trim() === '') return undefined;
@@ -41,6 +40,16 @@ async function fetchWikipediaImage(query: string): Promise<string | undefined> {
 }
 
 export async function generateJokes(age?: number, count: number = 3, previousJokes: string[] = []): Promise<{setup: string, punchline: string}[]> {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.SamenSlimmer;
+  
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+    console.warn("Gemini API key is missing or using placeholder. Returning fallback joke.");
+    return [{
+      setup: "Waarom nam de tomaat een paraplu mee?",
+      punchline: "Omdat het regende!"
+    }];
+  }
+
   try {
     const avoidInstruction = previousJokes.length > 0 
       ? `\n\nBELANGRIJK: Vertel NIET een van de volgende moppen die de gebruiker al kent:\n${previousJokes.join('\n')}`
@@ -58,27 +67,35 @@ export async function generateJokes(age?: number, count: number = 3, previousJok
     Zorg dat de moppen origineel zijn en niet de meest standaard moppen (zoals de tomaat met de paraplu).`;
     
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-flash-latest', // Using latest for better reliability
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              setup: { type: Type.STRING, description: "De setup of de vraag van de mop" },
-              punchline: { type: Type.STRING, description: "De clou of het antwoord van de mop" }
-            },
-            required: ["setup", "punchline"]
-          }
+          type: Type.OBJECT,
+          properties: {
+            jokes: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  setup: { type: Type.STRING, description: "De setup of de vraag van de mop" },
+                  punchline: { type: Type.STRING, description: "De clou of het antwoord van de mop" }
+                },
+                required: ["setup", "punchline"]
+              }
+            }
+          },
+          required: ["jokes"]
         }
       }
     });
     
-    const jsonStr = response.text?.trim() || "[]";
+    const jsonStr = response.text?.trim() || "{}";
     const parsed = JSON.parse(jsonStr);
-    return parsed.length > 0 ? parsed : [{
+    const jokes = parsed.jokes || [];
+    
+    return jokes.length > 0 ? jokes : [{
       setup: "Waarom nam de tomaat een paraplu mee?",
       punchline: "Omdat het regende!"
     }];
