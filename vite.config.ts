@@ -8,8 +8,12 @@ export default defineConfig(({mode}) => {
   return {
     plugins: [react(), tailwindcss()],
     define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.SamenSlimmer),
-      'process.env.SamenSlimmer': JSON.stringify(env.SamenSlimmer),
+      'process.env.GEMINI_API_KEY': JSON.stringify(
+        (env.GEMINI_API_KEY && env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY') 
+          ? env.GEMINI_API_KEY 
+          : (env.SamenSlimmer || '')
+      ),
+      'process.env.SamenSlimmer': JSON.stringify(env.SamenSlimmer || ''),
     },
     resolve: {
       alias: {
