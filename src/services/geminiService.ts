@@ -40,22 +40,22 @@ async function fetchWikipediaImage(query: string): Promise<string | undefined> {
   }
 }
 
-export async function generateJoke(age?: number, previousJokes: string[] = []): Promise<{setup: string, punchline: string}> {
+export async function generateJokes(age?: number, count: number = 3, previousJokes: string[] = []): Promise<{setup: string, punchline: string}[]> {
   try {
     const avoidInstruction = previousJokes.length > 0 
       ? `\n\nBELANGRIJK: Vertel NIET een van de volgende moppen die de gebruiker al kent:\n${previousJokes.join('\n')}`
       : "";
 
     const randomSeed = Math.random().toString(36).substring(7);
-    const prompt = `Vertel een heel korte, grappige kindermop voor een kind van ${age || 8} jaar oud. 
-    De mop moet perfect te begrijpen zijn voor deze leeftijd.
+    const prompt = `Vertel ${count} verschillende, heel korte, grappige kindermoppen voor een kind van ${age || 8} jaar oud. 
+    De moppen moeten perfect te begrijpen zijn voor deze leeftijd.
     
-    GEEF EEN NIEUWE MOP. Gebruik verschillende thema's (dieren, school, dokters, sport, etc.).
+    GEEF NIEUWE MOPPEN. Gebruik verschillende thema's (dieren, school, dokters, sport, etc.).
     Random seed voor variatie: ${randomSeed}
     
     ${avoidInstruction}
     
-    Zorg dat de mop origineel is en niet een van de meest standaard moppen (zoals de tomaat met de paraplu).`;
+    Zorg dat de moppen origineel zijn en niet de meest standaard moppen (zoals de tomaat met de paraplu).`;
     
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -63,28 +63,31 @@ export async function generateJoke(age?: number, previousJokes: string[] = []): 
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            setup: { type: Type.STRING, description: "De setup of de vraag van de mop" },
-            punchline: { type: Type.STRING, description: "De clou of het antwoord van de mop" }
-          },
-          required: ["setup", "punchline"]
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              setup: { type: Type.STRING, description: "De setup of de vraag van de mop" },
+              punchline: { type: Type.STRING, description: "De clou of het antwoord van de mop" }
+            },
+            required: ["setup", "punchline"]
+          }
         }
       }
     });
     
-    const jsonStr = response.text?.trim() || "{}";
+    const jsonStr = response.text?.trim() || "[]";
     const parsed = JSON.parse(jsonStr);
-    return {
-      setup: parsed.setup || "Waarom nam de tomaat een paraplu mee?",
-      punchline: parsed.punchline || "Omdat het regende!"
-    };
-  } catch (e) {
-    console.error("Error generating joke:", e);
-    return {
+    return parsed.length > 0 ? parsed : [{
       setup: "Waarom nam de tomaat een paraplu mee?",
       punchline: "Omdat het regende!"
-    };
+    }];
+  } catch (e) {
+    console.error("Error generating jokes:", e);
+    return [{
+      setup: "Waarom nam de tomaat een paraplu mee?",
+      punchline: "Omdat het regende!"
+    }];
   }
 }
 
