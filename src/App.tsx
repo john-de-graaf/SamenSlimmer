@@ -17,7 +17,7 @@ import { Level, ModeId, ThemeId, Question, QuizOption, Player, Experiment } from
 import { THEMES, MODES, QUESTIONS, EXPERIMENTS, getSeasonalTheme } from './data';
 import { KLETSEN_QUESTIONS } from './data_kletsen';
 import { CollectionScreen, AvatarIcon } from './components/CardSystem';
-import { generateQuestions, generateJoke } from './services/geminiService';
+import { generateQuestions, generateJokes } from './services/geminiService';
 import { SimonSays, ReactionTimer, FastTapper, FourSecondTimer, DotsAndBoxes } from './components/MiniGames';
 
 // Helper to get Lucide icon by name
@@ -288,10 +288,9 @@ export default function App() {
   const [activeSetupSection, setActiveSetupSection] = useState<'theme' | 'mode'>('theme');
   const [showDiscussion, setShowDiscussion] = useState(false);
   const [hasDiscussed, setHasDiscussed] = useState(false);
-  const [joke, setJoke] = useState<{setup: string, punchline: string} | null>(null);
-  const [preloadedJoke, setPreloadedJoke] = useState<{setup: string, punchline: string} | null>(null);
-  const [isFetchingNextJoke, setIsFetchingNextJoke] = useState(false);
-  const [showPunchline, setShowPunchline] = useState(false);
+  const [jokes, setJokes] = useState<{setup: string, punchline: string}[]>([]);
+  const [shownPunchlines, setShownPunchlines] = useState<number[]>([]);
+  const [isFetchingJokes, setIsFetchingJokes] = useState(false);
   const [globalShownJokes, setGlobalShownJokes] = useState<string[]>(() => {
     const saved = localStorage.getItem('samenslim_global_jokes');
     return saved ? JSON.parse(saved) : [];
@@ -305,54 +304,34 @@ export default function App() {
     localStorage.setItem('samenslim_shown_kletsen', JSON.stringify(shownKletsenIds));
   }, [shownKletsenIds]);
 
-  const fetchJoke = useCallback(async (age?: number) => {
-    if (isFetchingNextJoke) return;
-
-    if (preloadedJoke) {
-      const j = preloadedJoke;
-      const jokeText = `${j.setup} ${j.punchline}`;
-      setJoke(j);
-      setShowPunchline(false);
-      setPreloadedJoke(null);
-      setGlobalShownJokes(prev => [...prev, jokeText].slice(-100));
+  const fetchJokes = useCallback(async (age?: number) => {
+    if (isFetchingJokes) return;
+    setIsFetchingJokes(true);
+    try {
+      const newJokes = await generateJokes(age || 8, 3, globalShownJokes);
+      setJokes(newJokes);
+      setShownPunchlines([]);
       
-      // Preload next one immediately
-      try {
-        const next = await generateJoke(age || 8, [...globalShownJokes, jokeText]);
-        setPreloadedJoke(next);
-      } catch (e) {
-        console.error("Error preloading next joke:", e);
-      }
-    } else {
-      setIsFetchingNextJoke(true);
-      try {
-        const j = await generateJoke(age || 8, globalShownJokes);
-        const jokeText = `${j.setup} ${j.punchline}`;
-        setJoke(j);
-        setShowPunchline(false);
-        setGlobalShownJokes(prev => [...prev, jokeText].slice(-100));
-        
-        // Preload next one
-        const next = await generateJoke(age || 8, [...globalShownJokes, jokeText]);
-        setPreloadedJoke(next);
-      } catch (e) {
-        console.error("Error fetching joke:", e);
-      } finally {
-        setIsFetchingNextJoke(false);
-      }
+      const jokeTexts = newJokes.map(j => `${j.setup} ${j.punchline}`);
+      setGlobalShownJokes(prev => [...prev, ...jokeTexts].slice(-100));
+    } catch (e) {
+      console.error("Error fetching jokes:", e);
+    } finally {
+      setIsFetchingJokes(false);
     }
-  }, [preloadedJoke, isFetchingNextJoke, globalShownJokes]);
+  }, [isFetchingJokes, globalShownJokes]);
 
-  // Pre-load a joke on startup
+  const togglePunchline = (index: number) => {
+    setShownPunchlines(prev => 
+      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
+    );
+  };
+
+  // Pre-load jokes on startup
   useEffect(() => {
     const preload = async () => {
-      if (!preloadedJoke) {
-        try {
-          const j = await generateJoke(8, globalShownJokes);
-          setPreloadedJoke(j);
-        } catch (e) {
-          console.error("Error preloading joke:", e);
-        }
+      if (jokes.length === 0 && !isFetchingJokes) {
+        fetchJokes(8);
       }
     };
     preload();
@@ -1080,7 +1059,7 @@ export default function App() {
           }
           
           if (p.score > 0 && p.score % 5 === 0) {
-            fetchJoke(p.age);
+            fetchJokes(p.age);
           }
           
           const currentTheme = activeQuestions[currentIndex].themeId;
@@ -1188,7 +1167,7 @@ export default function App() {
         setScore(s => {
           const newScore = s + 1;
           if (newScore > 0 && newScore % 5 === 0) {
-            fetchJoke();
+            fetchJokes();
           }
           return newScore;
         });
@@ -1868,7 +1847,7 @@ export default function App() {
                         <motion.button
                           whileHover={{ scale: 1.02, y: -2 }}
                           whileTap={{ scale: 0.98 }}
-                          onClick={() => fetchJoke()}
+                          onClick={() => fetchJokes()}
                           className="bg-gradient-to-br from-blue-400 to-indigo-600 p-4 sm:p-8 rounded-3xl shadow-lg text-white flex flex-col items-center text-center gap-2 sm:gap-4 relative overflow-hidden group"
                         >
                           <div className="absolute -right-4 -bottom-4 opacity-20 rotate-12 group-hover:scale-110 transition-transform">
@@ -3451,72 +3430,76 @@ export default function App() {
               />
             )}
             {/* JOKE MODAL */}
-            {joke && (
+            {jokes.length > 0 && (
               <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
                 <motion.div 
                   initial={{ scale: 0.8, opacity: 0, y: 20 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
-                  className="bg-white rounded-[2.5rem] p-8 max-w-md w-full text-center shadow-2xl border-4 border-yellow-400 relative overflow-hidden"
+                  className="bg-white rounded-[2.5rem] p-6 sm:p-8 max-w-md w-full text-center shadow-2xl border-4 border-yellow-400 relative overflow-hidden flex flex-col max-h-[90vh]"
                 >
                   <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-b from-yellow-100 to-transparent opacity-50 pointer-events-none" />
-                  <div className="text-6xl mb-6 relative z-10 animate-bounce">😂</div>
-                  <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight mb-4 relative z-10">
-                    {screen === 'gameroom' ? 'Moppen Tijd!' : '5 Vragen Goed!'}
+                  <div className="text-5xl sm:text-6xl mb-4 relative z-10 animate-bounce">😂</div>
+                  <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight mb-2 relative z-10">
+                    {screen === 'gameroom' ? 'Moppenboek!' : '5 Vragen Goed!'}
                   </h2>
-                  <p className="text-slate-500 font-medium mb-6 relative z-10">Tijd voor een mop:</p>
-                  <div className="bg-slate-50 rounded-2xl p-6 mb-8 relative z-10 border-2 border-slate-100">
-                    <p className="text-xl text-slate-800 font-bold leading-relaxed">{joke.setup}</p>
-                    {showPunchline && (
-                      <motion.p 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-2xl text-indigo-600 font-black leading-relaxed mt-4"
-                      >
-                        {joke.punchline}
-                      </motion.p>
-                    )}
-                  </div>
-                  {!showPunchline ? (
-                    <button 
-                      onClick={() => setShowPunchline(true)}
-                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-black py-4 rounded-2xl transition-all active:scale-95 uppercase tracking-wide shadow-xl shadow-yellow-500/20 relative z-10"
-                    >
-                      Laat het antwoord zien!
-                    </button>
-                  ) : (
-                    <div className="flex flex-col gap-3 w-full relative z-10">
-                      <button 
-                        disabled={isFetchingNextJoke}
-                        onClick={() => {
-                          const age = gamePlayers.length > 0 ? (gamePlayers[currentPlayerIndex]?.age || 8) : 8;
-                          fetchJoke(age);
-                        }}
-                        className={`w-full font-black py-4 rounded-2xl transition-all active:scale-95 uppercase tracking-wide shadow-xl flex items-center justify-center gap-2 ${
-                          isFetchingNextJoke 
-                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
-                            : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-indigo-500/20'
-                        }`}
-                      >
-                        {isFetchingNextJoke ? (
-                          <>
-                            <Loader2 size={20} className="animate-spin" />
-                            <span>Even denken...</span>
-                          </>
+                  <p className="text-slate-500 font-medium mb-4 relative z-10">Hier zijn 3 leuke moppen:</p>
+                  
+                  <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-6 relative z-10 custom-scrollbar">
+                    {jokes.map((j, idx) => (
+                      <div key={idx} className="bg-slate-50 rounded-2xl p-4 border-2 border-slate-100 text-left">
+                        <p className="text-lg text-slate-800 font-bold leading-relaxed">{j.setup}</p>
+                        {shownPunchlines.includes(idx) ? (
+                          <motion.p 
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-xl text-indigo-600 font-black leading-relaxed mt-3 pt-3 border-t border-slate-200"
+                          >
+                            {j.punchline}
+                          </motion.p>
                         ) : (
-                          'Nog een mop!'
+                          <button 
+                            onClick={() => togglePunchline(idx)}
+                            className="mt-3 text-sm font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-600 transition-colors flex items-center gap-1"
+                          >
+                            Klik voor de clou! ✨
+                          </button>
                         )}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setJoke(null);
-                          setShowPunchline(false);
-                        }}
-                        className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-2xl transition-all active:scale-95 uppercase tracking-wide"
-                      >
-                        {screen === 'gameroom' ? 'Terug naar menu' : 'Door naar de quiz!'}
-                      </button>
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col gap-3 w-full relative z-10">
+                    <button 
+                      disabled={isFetchingJokes}
+                      onClick={() => {
+                        const age = gamePlayers.length > 0 ? (gamePlayers[currentPlayerIndex]?.age || 8) : 8;
+                        fetchJokes(age);
+                      }}
+                      className={`w-full font-black py-4 rounded-2xl transition-all active:scale-95 uppercase tracking-wide shadow-xl flex items-center justify-center gap-2 ${
+                        isFetchingJokes 
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' 
+                          : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-indigo-500/20'
+                      }`}
+                    >
+                      {isFetchingJokes ? (
+                        <>
+                          <Loader2 size={20} className="animate-spin" />
+                          <span>Nieuwe moppen zoeken...</span>
+                        </>
+                      ) : (
+                        'Nieuwe moppen!'
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setJokes([]);
+                        setShownPunchlines([]);
+                      }}
+                      className="w-full bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-2xl transition-all active:scale-95 uppercase tracking-wide"
+                    >
+                      {screen === 'gameroom' ? 'Terug naar menu' : 'Door naar de quiz!'}
+                    </button>
+                  </div>
                 </motion.div>
               </div>
             )}
