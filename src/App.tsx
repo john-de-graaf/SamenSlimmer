@@ -3442,7 +3442,9 @@ export default function App() {
                   <h2 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tight mb-2 relative z-10">
                     {screen === 'gameroom' ? 'Moppenboek!' : '5 Vragen Goed!'}
                   </h2>
-                  <p className="text-slate-500 font-medium mb-4 relative z-10">Hier zijn 3 leuke moppen:</p>
+                  <p className="text-slate-500 font-medium mb-4 relative z-10">
+                    {jokes.length === 1 ? 'Hier is een leuke mop:' : `Hier zijn ${jokes.length} leuke moppen:`}
+                  </p>
                   
                   <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-6 relative z-10 custom-scrollbar">
                     {jokes.map((j, idx) => (
