@@ -536,7 +536,7 @@ export default function App() {
     // Determine initial level based on age and school level
     let initialLevel: Level = 'makkelijk';
     
-    if (newPlayerSchoolLevel === 'Middelbare' || newPlayerSchoolLevel === 'Groep 7' || newPlayerSchoolLevel === 'Groep 8' || newPlayerAge > 10) {
+    if (newPlayerSchoolLevel === 'Mavo/Havo' || newPlayerSchoolLevel === 'Groep 7' || newPlayerSchoolLevel === 'Groep 8' || newPlayerAge > 10) {
       initialLevel = 'moeilijk';
     } else if (newPlayerSchoolLevel === 'Groep 5' || newPlayerSchoolLevel === 'Groep 6' || newPlayerAge >= 8) {
       initialLevel = 'midden';
@@ -2387,14 +2387,14 @@ export default function App() {
                         Schoolniveau (optioneel)
                       </label>
                       <div className="grid grid-cols-3 gap-2">
-                        {['Groep 1-2', 'Groep 3', 'Groep 4', 'Groep 5', 'Groep 6', 'Groep 7', 'Groep 8', 'Middelbare', 'MBO of hoger'].map(lvl => (
+                        {['Groep 1-2', 'Groep 3', 'Groep 4', 'Groep 5', 'Groep 6', 'Groep 7', 'Groep 8', 'Mavo/Havo', 'MBO of hoger'].map(lvl => (
                           <button
                             key={lvl}
                             onClick={() => {
                               setNewPlayerSchoolLevel(lvl);
                               if (lvl === 'MBO of hoger' && newPlayerAge < 16) {
                                 setNewPlayerAge(16);
-                              } else if (lvl === 'Middelbare' && newPlayerAge < 12) {
+                              } else if (lvl === 'Mavo/Havo' && newPlayerAge < 12) {
                                 setNewPlayerAge(12);
                               } else if (lvl.startsWith('Groep') && newPlayerAge > 12) {
                                 // Optional: reset age if it's way off for primary school
