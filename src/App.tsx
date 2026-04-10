@@ -289,6 +289,7 @@ export default function App() {
   const [showDiscussion, setShowDiscussion] = useState(false);
   const [hasDiscussed, setHasDiscussed] = useState(false);
   const [jokes, setJokes] = useState<{setup: string, punchline: string}[]>([]);
+  const [preloadedJokes, setPreloadedJokes] = useState<{setup: string, punchline: string}[]>([]);
   const [shownPunchlines, setShownPunchlines] = useState<number[]>([]);
   const [isFetchingJokes, setIsFetchingJokes] = useState(false);
   const [globalShownJokes, setGlobalShownJokes] = useState<string[]>(() => {
@@ -304,13 +305,32 @@ export default function App() {
     localStorage.setItem('samenslim_shown_kletsen', JSON.stringify(shownKletsenIds));
   }, [shownKletsenIds]);
 
-  const fetchJokes = useCallback(async (age?: number) => {
+  const fetchJokes = useCallback(async (age?: number, showImmediately: boolean = true) => {
     if (isFetchingJokes) return;
+    
+    // If we have preloaded jokes and we want to show them now
+    if (showImmediately && preloadedJokes.length > 0) {
+      setJokes(preloadedJokes);
+      setShownPunchlines([]);
+      setPreloadedJokes([]); // Clear pool
+      
+      // Preload next set in background
+      setTimeout(() => {
+        fetchJokes(age || 8, false);
+      }, 1000);
+      return;
+    }
+
     setIsFetchingJokes(true);
     try {
       const newJokes = await generateJokes(age || 8, 3, globalShownJokes);
-      setJokes(newJokes);
-      setShownPunchlines([]);
+      
+      if (showImmediately) {
+        setJokes(newJokes);
+        setShownPunchlines([]);
+      } else {
+        setPreloadedJokes(newJokes);
+      }
       
       const jokeTexts = newJokes.map(j => `${j.setup} ${j.punchline}`);
       setGlobalShownJokes(prev => [...prev, ...jokeTexts].slice(-100));
@@ -319,7 +339,7 @@ export default function App() {
     } finally {
       setIsFetchingJokes(false);
     }
-  }, [isFetchingJokes, globalShownJokes]);
+  }, [isFetchingJokes, globalShownJokes, preloadedJokes]);
 
   const togglePunchline = (index: number) => {
     setShownPunchlines(prev => 
@@ -327,11 +347,11 @@ export default function App() {
     );
   };
 
-  // Pre-load jokes on startup
+  // Pre-load jokes on startup (background)
   useEffect(() => {
     const preload = async () => {
-      if (jokes.length === 0 && !isFetchingJokes) {
-        fetchJokes(8);
+      if (preloadedJokes.length === 0 && jokes.length === 0 && !isFetchingJokes) {
+        fetchJokes(8, false);
       }
     };
     preload();
