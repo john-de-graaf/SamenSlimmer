@@ -185,7 +185,7 @@ export async function generateQuestions(
         - TAAL: Helder en informatief, maar vermijd jargon.
         - VOORBEELD: "Welke planeet staat het dichtst bij de zon?" of "Hoeveel spelers staan er in een voetbalteam?"`;
       } else if (age && age >= 12 && age <= 15) {
-        difficultyInstruction += `\n\nPROFIEL 12-15 JAAR (MIDDELBARE SCHOOL):
+        difficultyInstruction += `\n\nPROFIEL 12-15 JAAR (MAVO/HAVO / MIDDELBARE SCHOOL):
         - FOCUS: Inzicht, verbanden en algemene ontwikkeling.
         - ONDERWERPEN: Actualiteit, popcultuur, sociale media, techniek, wereldgeschiedenis, biologie, aardrijkskunde.
         - TAAL: Modern en volwassen, maar passend bij de puberleeftijd.
