@@ -2,7 +2,23 @@ import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { Question, ThemeId, Level, Player, ModeId } from '../types';
 import { getSeasonalTheme } from '../data';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.SamenSlimmer || '' });
+const getApiKey = () => {
+  // Check multiple sources for the API key
+  const key = 
+    (typeof process !== 'undefined' && process.env?.GEMINI_API_KEY) || 
+    (typeof process !== 'undefined' && process.env?.SamenSlimmer) ||
+    (import.meta as any).env?.VITE_GEMINI_API_KEY || 
+    (import.meta as any).env?.VITE_SAMEN_SLIMMER ||
+    '';
+    
+  // Filter out placeholder values
+  if (!key || key === 'MY_GEMINI_API_KEY' || key === 'YOUR_API_KEY_HERE') {
+    return '';
+  }
+  return key;
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 async function fetchWikipediaImage(query: string): Promise<string | undefined> {
   if (!query || query.trim() === '') return undefined;
@@ -40,14 +56,15 @@ async function fetchWikipediaImage(query: string): Promise<string | undefined> {
 }
 
 export async function generateJokes(age?: number, count: number = 3, previousJokes: string[] = []): Promise<{setup: string, punchline: string}[]> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.SamenSlimmer;
+  const apiKey = getApiKey();
   
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY' || apiKey === '') {
-    console.warn("Gemini API key is missing or invalid. Check your Secrets settings.");
-    return [{
-      setup: "Waarom nam de tomaat een paraplu mee?",
-      punchline: "Omdat het regende!"
-    }];
+  if (!apiKey) {
+    console.warn("Gemini API key is missing or invalid. Check your Vercel/Secrets settings.");
+    return [
+      { setup: "Wat is groen en glijdt van een berg?", punchline: "Een ski-wi!" },
+      { setup: "Het is geel en als je op een knopje drukt wordt het grijs?", punchline: "Een banaan in een uniform!" },
+      { setup: "Waarom vliegen vogels naar het zuiden?", punchline: "Omdat het te ver is om te lopen!" }
+    ];
   }
 
   try {
